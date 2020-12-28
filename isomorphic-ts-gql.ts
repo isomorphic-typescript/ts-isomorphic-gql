@@ -63,10 +63,16 @@ type TypeDef = {
         return 1;
     }
 
-type Schema = {
-    mutation: ;
-    query: ;
-    subscription: ;
+type Query = ((args: {[argName: string]: iGQLType<any>}) => iGQLType<any>);
+
+type SchemaInput = {
+    //mutation: {[mutationName: string]: };
+    query: {[queryName: string]: Query};
+    //subscription: ;
+}
+
+type SchemaClient<Q> = {
+    query: {}
 }
 
 function makeSchema(): Schema {

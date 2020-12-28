@@ -11,3 +11,8 @@ const Library = iGQL.object(() => ({
 const Book = iGQL.object(() => ({
     
 }));
+
+
+posts({}, 
+    
+)
