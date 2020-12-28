@@ -59,15 +59,6 @@ type TypeDef = {
     // Once the above is done we can do the below to ban symbol keys
     // [symbolFieldName: symbol]: never;
 }
-type SchemaDef<T extends TypeDef, ArgFields, NoArgFields> = {
-    [argField in keyof ArgFields]: ArgsType<any, any>;
-} & {
-    [noArgField in keyof NoArgFields]: NoArgsType<any>;
-}
-
-function object<T extends TypeDef, ArgFields extends keyof T, NoArgFields extends keyof T>(def: T): SchemaDef<T, ArgFields, NoArgFields> {
-    return def as any;
-}
 
 type Query = ((args: {[argName: string]: iGQLType<any>}) => iGQLType<any>);
 type SchemaInput = {
