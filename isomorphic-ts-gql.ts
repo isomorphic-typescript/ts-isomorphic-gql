@@ -17,6 +17,8 @@ type List<T extends Type> = T[]; // Find a way to represent [String!]
  *                  will object fn need to take in a function so as to solve dependency resolution order?
  *                  DIRECTIVEs
  *                  use template tagging to allow people to ducument their schema.
+ *                  Inputs? Hard to say if we like these more than having Object types suffice.
+ *                  Deprecated???
  * TODO list:
  * 1. Lists
  * 2. Correct querier being returned via type names & register into schema
@@ -65,8 +67,10 @@ type NestedNoArgsType<D extends TypeDef,  T extends TypeDefReturn<D>> = {
     hasArgs: false;
 }
 
+//type 
+
 function generateType<T>(name: string, decode: () => T): NoArgsType<T> {
-    function type<A>(args: A): ArgsType<A, T> {
+    function type<A extends NoArgsTypeDef>(args: A): ArgsType<A, T> {
         return {
             name, decode, args, hasArgs: true
         }
@@ -92,9 +96,13 @@ function object<D extends TypeDef, T extends TypeDefReturn<D>>(def: D): NestedNo
     return {} as any;
 }
 
-function List():  {
+/*
+function List<T, NAT extends NoArgsType<T>>(t: NAT):
+    NAT extends NestedNoArgsType<infer D, infer X> ? 
+{
 
 }
+*/
 
 // According to spec, field names must abide by the regex /[_A-Za-z][_0-9A-Za-z]*/
 type TypeDef = {
