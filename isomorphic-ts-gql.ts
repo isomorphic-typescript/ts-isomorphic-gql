@@ -189,7 +189,8 @@ const Type2 = object({
 const MySchema = {
     thing: ID,
     another: String({hello: String}),
-    profilePic: String({width: Int, height: Int})
+    profilePic: String({width: Int, height: Int}),
+    nest: Type2
 };
 
 makeSchema({
@@ -205,9 +206,12 @@ const result = query(MySchema, q => q
     .another({hello: ''})
     .thing
     .profilePic({width: 100, height: 50})
+    .nest(q => q
+        .nest1({myFav: '', bogo: true})
+    )
 )
 
-result.another
+result.nest.nest1
 
 /*
 We'll ideally have a situation like this in the end:
