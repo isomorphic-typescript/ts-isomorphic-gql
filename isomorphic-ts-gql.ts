@@ -25,10 +25,11 @@ type List<T extends Type> = T[]; // Find a way to represent [String!]
  * 3. Optional types
  * 4. Enum types
  * 5. Custom Scalars
- * 6. Schema construction
+ * 6. 
  * 7. 
- * 8. 
  */
+
+ // implement behaviors!
 
 type Type<T> = {
     name: string;
@@ -67,7 +68,12 @@ type NestedNoArgsType<D extends TypeDef,  T extends TypeDefReturn<D>> = {
     hasArgs: false;
 }
 
-//type 
+type ListType<T extends ListType<any> | undefined> = {
+    nestedLists: T;
+}
+
+type GetListReturnType<R, T extends ListType<any> | undefined> = 
+    T extends ListType<any> ? GetListReturnType<R, T['nestedLists']>[] : R;
 
 function generateType<T>(name: string, decode: () => T): NoArgsType<T> {
     function type<A extends NoArgsTypeDef>(args: A): ArgsType<A, T> {
@@ -96,13 +102,27 @@ function object<D extends TypeDef, T extends TypeDefReturn<D>>(def: D): NestedNo
     return {} as any;
 }
 
-/*
-function List<T, NAT extends NoArgsType<T>>(t: NAT):
-    NAT extends NestedNoArgsType<infer D, infer X> ? 
-{
 
+function List<NAT extends NoArgsType<any>>(t: NAT): 
+    NAT extends ListType<any> ? 
+        NAT extends NestedNoArgsType<infer D, infer T> ?
+            NestedNoArgsType<D, T> & ListType<ListType<NAT['nestedLists']>> : 
+            NAT extends NoArgsType<infer D> ? 
+                NoArgsType<D> & ListType<ListType<NAT['nestedLists']>> : 
+                never :
+    NAT & ListType<undefined> 
+{
+    return {} as any;
 }
-*/
+
+function testListReturn<R, T>(input: Type<R> & T): T extends ListType<any> ? GetListReturnType<R, T> : R {
+    return {} as any;
+}
+
+
+const thing = List(List(List(String)));
+
+const test = testListReturn(thing);
 
 // According to spec, field names must abide by the regex /[_A-Za-z][_0-9A-Za-z]*/
 type TypeDef = {
