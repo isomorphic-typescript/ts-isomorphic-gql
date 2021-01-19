@@ -37,11 +37,20 @@ type ScalarTrait      = IsNotScalarTrait | IsScalarTrait<any>;
 
 // Enums
 
-// Interfaces
-
 // Optional Types
 
-//
+/** MVP ENDS HERE */
+
+/**
+ * https://spec.graphql.org
+ * After MVP we can focus on the following:
+ * - Interface & implements
+ * - Custom scalars
+ * - Directives
+ * - makeSchema should fail if any types were not supplied.
+ */
+
+/** END FEATURE SET */
 
 type Type<Name extends string, Input extends InputTrait, Arguments extends ArgumentsTrait, Object extends ObjectTrait, Scalar extends ScalarTrait> = {
     name: Name;
@@ -53,6 +62,7 @@ type Type<Name extends string, Input extends InputTrait, Arguments extends Argum
 );
 
 declare const String: Type<'String', IsNotInputTrait, HasNoArgsTrait , IsNotObjectTrait, IsScalarTrait<string>>;
+declare const Mutation: Type<'Mutation', IsNotInputTrait, HasNoArgsTrait , IsNotObjectTrait, IsScalarTrait<string>>;
 
 
 declare function makeObject<Name extends string, Fields extends ObjectTypeDef>(name: Name, fieldsCreator: () => Fields): 
@@ -64,68 +74,78 @@ type ResolveObjectQueryResult<T extends Type<any, any, any, IsNotObjectTrait, an
         JSType :
         never;
 
-type QueryResult<TypeName extends string, Response> = {
-    typeName: TypeName;
-    response: Response;
+type NestedQueryTracker<OuterFields extends ObjectTypeDef, OuterResult, OuterTypeName extends string, CurrentField extends string|number|symbol, OuterOuter extends NestedQueryTracker<any, any, any, any, any> | false> = {
+    outerFields: OuterFields;
+    outerResult: OuterResult;
+    outerTypeName: OuterTypeName;
+    currentField: CurrentField;
+    outerOuter: OuterOuter;
 }
 
-// NEW IDEA: instead of having a function passed when having a nested object query, instead have an $end to designate going back up one level.
-// Then we no longer have to care about the return type.
+type ObjectQuerySpec<TypeName extends string, Result> = {
+    typeName: TypeName;
+    result: Result;
+};
 
-type ObjectQuery<Fields extends ObjectTypeDef, Result extends QueryResult<string, any>> = {} & {
+// https://spec.graphql.org/June2018/#sec-Single-root-field todo: Subscriptions specifically can have only 1 root field.
+type ObjectQuery<Fields extends ObjectTypeDef, Result, TypeName extends string, OuterQuery extends NestedQueryTracker<any, any, any, any, any> | false> = {
+    $: OuterQuery extends NestedQueryTracker<infer OuterFields, infer OuterResult, infer OuterTypeName, infer CurrentField, infer OuterOuter> ? 
+            ObjectQuery<
+                OuterFields, 
+                OuterResult & {[f in CurrentField]: {__typename: TypeName} & Result},
+                OuterTypeName, OuterOuter>
+        :
+            ObjectQuerySpec<TypeName, {__typename: TypeName} & Result>
+} & {
     [field in keyof Fields]:
         Fields[field] extends HasArgsType<infer Args> ?
             // Has args
             Fields[field] extends IsObjectType<infer SubFields> ?
                 // Has args and is object type
-                <SubResponse, SubQueryResult extends QueryResult<Fields[field]['name'], SubResponse>>(
-                    args: GetArgsJsType<Args>,
-                    subQuery: (
-                        objectQuery: ObjectQuery<SubFields, {typeName: Fields[field]['name'], response: {}}>
-                    ) => ObjectQuery<any, SubQueryResult>
-                ) => ObjectQuery<Omit<Fields, field>, QueryResult<Result['typeName'], Result['response'] & {[f in field]: SubResponse}>>
+                (args: GetArgsJsType<Args>) =>
+                ObjectQuery<SubFields, {}, Fields[field]['name'], NestedQueryTracker<Omit<Fields, field>, Result, TypeName, field, OuterQuery>>
             : // else
                 // Has args and is not object type
-                (
-                    args: GetArgsJsType<Args>
-                ) => ObjectQuery<Omit<Fields, field>, QueryResult<Result['typeName'], Result['response'] & {[f in field]: ResolveObjectQueryResult<Fields[f]>}>>
+                (args: GetArgsJsType<Args>) =>
+                ObjectQuery<Omit<Fields, field>, Result & {[f in field]: ResolveObjectQueryResult<Fields[f]>}, TypeName, OuterQuery>
         : //else
             // Has no args
             Fields[field] extends IsObjectType<infer SubFields> ?
                 // Has no args and is object type 
-                <SubResponse, SubQueryResult extends QueryResult<Fields[field]['name'], SubResponse>>(
-                    subQuery: (
-                        objectQuery: ObjectQuery<SubFields, {typeName: Fields[field]['name'], response: SubResponse}>
-                    ) => ObjectQuery<any, SubQueryResult>
-                ) => ObjectQuery<Omit<Fields, field>, QueryResult<Result['typeName'], Result['response'] & {[f in field]: SubResponse}>>
+                ObjectQuery<SubFields, {}, Fields[field]['name'], NestedQueryTracker<Omit<Fields, field>, Result, TypeName, field, OuterQuery>>
             : // else
                 // Has no args and is not object type
-                ObjectQuery<Omit<Fields, field>, QueryResult<Result['typeName'], Result['response'] & {[f in field]: ResolveObjectQueryResult<Fields[f]>}>>;
+                ObjectQuery<Omit<Fields, field>, Result & {[f in field]: ResolveObjectQueryResult<Fields[f]>}, TypeName, OuterQuery>;
 };
 
 // See if the schema definition could be simplified by https://stackoverflow.com/questions/60237422/in-typescript-can-i-restrict-type-of-indexer-value-based-on-narrow-type-of-inde/65544799#65544799
 type AllowedSchemaTypes = {
     [typeName: string]: any;
-    "Query": any;
 };
 type Schema<Types extends AllowedSchemaTypes> = {
     [TypeName in keyof Types & string]: Type<TypeName, InputTrait, HasNoArgsTrait, ObjectTrait, ScalarTrait>;
 } & {
     Query: Type<'Query', IsNotInputTrait, HasNoArgsTrait, IsObjectTrait<any>, IsNotScalarTrait>;
-}
+    Mutation?: Type<'Mutation', IsNotInputTrait, HasNoArgsTrait, IsObjectTrait<any>, IsNotScalarTrait>;
+    Subscription?: Type<'Subscription', IsNotInputTrait, HasNoArgsTrait, IsObjectTrait<any>, IsNotScalarTrait>;
+};
 
 declare function makeSchema<S extends AllowedSchemaTypes & Schema<S>>(types: S): S;
-
-
-
 type Client<S extends Schema<any>> = {
-    schema: S;
-    query: <Result>(
-        query: (
-            objectQuery: ObjectQuery<S['Query']['traits']['isObjectType']['type'], QueryResult<S['Query']['name'], {}>>
-        ) => ObjectQuery<any, QueryResult<S['Query']['name'], Result>>
-    ) => Promise<Result>;
-};
+    query: ObjectQuery<S['Query']['traits']['isObjectType']['type'], {}, S['Query']['name'], false>,
+    execute: <TypeName extends 'Query' | 'Mutation' | 'Subscription', Result>(spec: ObjectQuerySpec<TypeName, Result>) =>
+        TypeName extends 'Query' | 'Mutation' ? 
+            Promise<Result> :
+        TypeName extends 'Subscription' ?
+            AsyncIterable<Result> :
+            never;
+} & (
+    S['Mutation'] extends Type<infer TypeName, any, any, IsObjectTrait<infer TypeDef>, any> ?
+        {mutation: ObjectQuery<TypeDef, {}, TypeName, false>} : {}
+) & (
+    S['Subscription'] extends Type<infer TypeName, any, any, IsObjectTrait<infer TypeDef>, any> ?
+        {subscription: ObjectQuery<TypeDef, {}, TypeName, false>} : {}
+);
 
 declare function makeClient<S extends Schema<any>>(schema: S): Client<S>;
 
@@ -133,7 +153,8 @@ export const types = {
     makeObject,
     makeSchema,
     scalar: {
-        String
+        String,
+        Mutation
     }
 }
 

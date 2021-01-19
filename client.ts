@@ -3,26 +3,32 @@ import { types, client } from './take-2-with-traits';
 //////////////////////////////
 //       Shared Code        //
 //////////////////////////////
-const { scalar, makeObject, makeSchema } = types;
-const { String } = scalar;
+const { scalar: { String }, makeObject, makeSchema } = types;
 
 const HelloWorld = makeObject('HelloWorld', () => ({
+    thingy: String({gogogo: String}),
+    anotherTwo: String
 }))
 
 const Query = makeObject('Query', () => ({
-    test66: HelloWorld
+    test66: HelloWorld({two: String}),
+    second: String
 }));
 
-const Schema = makeSchema({HelloWorld, Query});
+const Mutation = makeObject('Mutation', () => ({}))
+
+const Schema = makeSchema({HelloWorld, Query, Mutation});
 
 //////////////////////////////
 //       Client Code        //
 //////////////////////////////
-const { makeClient } = client;
-const c = makeClient(Schema);
+const { execute, query, mutation } = client.makeClient(Schema);
 
-const result = c.query(q => q);
+const result = execute(query
+    .test66({two: ""})
+        .thingy({gogogo: ''})
+        .anotherTwo
+        .$
+    .$);
 
-const testing = {
-    $: ''
-}
+const mutres = execute(mutation.$)

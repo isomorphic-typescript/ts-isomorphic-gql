@@ -21,7 +21,7 @@ type List<T extends Type> = T[]; // Find a way to represent [String!]
  *                  Deprecated???
  * TODO list:
  * 1. Lists
- * 2. Correct querier being returned via type names & register into schema
+ * 2. Correct querier being returned via type names & register into schema x
  * 3. Optional types
  * 4. Enum types
  * 5. Custom Scalars
