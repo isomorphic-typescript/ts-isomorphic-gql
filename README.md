@@ -26,7 +26,7 @@ This library is intended for GraphQL and TypeScript adopters who want to separat
 
 # Usage
 
-`yarn add @isomorphic-typescript/ts-isomorphic-gql` in your isomorphic package.
+`yarn add @isomorphic-typescript/ts-isomorphic-gql-define` in your isomorphic package (the package shared between client and server).
 
 **Opinion**: NPM is an abomination compared to Yarn 2 because Yarn 2 fixes Node's broken module resolution algorithm through Plug N' Play loading, allowing Yarn 2 to have [perfect hoisting](https://yarnpkg.com/features/pnp#fixing-node_modules) of all packages in a monorepo whereas npm allows any package to use a hoisted module even if the package doesn't declare the hoisted package as a dependency in package.json whereas Yarn only allows imports/requires of modules which are explicitly declared as a package's dependency, and in addition npm's symlinking between packages in the same monorepo creates issues for non-hoisted modules where there are duplicate versions of the same 3rd-party module being loaded into the program since there are multiple nested node_modules in each monorepo package, which creates problems for projects such as the `graqphql` package [which runtime-checks to see if the instances of objects are identical](https://github.com/graphql/graphql-js/blob/607345275f60e07dba1b7156a23b9ddf8b086fc9/src/jsutils/instanceOf.js#L27-L39) (so duplicate loaded graphql modules will cause runtime failures, therefore [pnpm](https://pnpm.js.org/) monorepos suffer from this issue too).
 
@@ -68,7 +68,7 @@ const Book = makeObject('Book', () => ({
 
 const Query = makeObject('Query', () => ({
     getBooks: List(Book)({startDate: Int, endDate: Int})`List of all books published within a time range`,
-    getAuthor: Publisher({id: Int})`Get a specific author`
+    getAuthor: Author({id: Int})`Get a specific author`
 }));
 
 export const Schema = makeSchema({Query, Name, Author, Book, Publisher});
