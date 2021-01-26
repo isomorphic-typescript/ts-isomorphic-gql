@@ -11,7 +11,7 @@ const HelloWorld = makeObject('HelloWorld', () => ({
 }))
 
 const Query = makeObject('Query', () => ({
-    test66: HelloWorld.withArgs({}),
+    test66: HelloWorld``,
     second: String
 }));
 
