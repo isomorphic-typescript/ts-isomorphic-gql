@@ -15,7 +15,6 @@ type GetArgsJsType<Args extends ArgumentsDef> = { [field in keyof Args]:
                                                             : ArgType extends IsInputType<infer SubArgs> ? GetArgsJsType<SubArgs>
                                                             : never
                                                         >
-                                                        
                                                     : Args[field] extends ArgumentsType ?
                                                         ResolveListAndOptional<
                                                             Args[field],
@@ -26,9 +25,17 @@ type GetArgsJsType<Args extends ArgumentsDef> = { [field in keyof Args]:
                                                     : never
                                                 };
 type ArgumentsType                                 = IsInputType<ArgumentsDef> | IsScalarType<unknown>;
-type ArgumentsDefFieldDef<T extends ArgumentsType> = { desc?: string; type: T };
+type SingleArgVal<T extends ArgumentsType>         = GetArgsJsType<{field: T}>['field'];
+type ArgumentsDefFieldDef<T extends ArgumentsType, DT extends ArgumentsType = T> = { desc?: string; type: T; dflt?: SingleArgVal<DT>; };
 type ArgumentsDef                                  = { [field: string]: ArgumentsDefFieldDef<ArgumentsType> | ArgumentsType };
 
+/*
+type Argument<T extends ArgumentsDef, >
+type ArgumentsDef2 = { [field: string]: Argument }
+type Field<T extends IsNotInputType, Desc extends string | undefined, Args extends >
+
+declare function field(type: IsNotInputType): 
+*/
 
 // Objects
 type ObjectTypeDefFieldDefWithArgs<T extends IsNotInputType, A extends ArgumentsDef> = { args: A; type: T; };
@@ -81,22 +88,18 @@ type ResolveListAndOptional<T extends TypeSuperset, BaseType> =
     :
         never;
 
-declare function testResolveList<T extends TypeSuperset & IsNotObjectType>(t: T): ResolveListAndOptional<T, ResolveScalar<T>>;
-const Test = Maybe(String);
-const hello = testResolveList(Test);
-    
-
 // Enums
-type IsNotEnumTrait = { isEnum: false; };
-type IsEnumTrait    = { isEnum: true; };
-type IsEnumType     = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, IsEnumTrait>;
-type IsNotEnumType  = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, IsNotEnumTrait>;
-type EnumTrait      = IsEnumTrait | IsNotEnumTrait;
+type IsNotEnumTrait                        = { isEnum: false; };
+type IsEnumTrait<Members extends string[]> = { isEnum: { members: { [value in Members[number]]: value } }; };
+type IsEnumType                            = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, IsEnumTrait<string[]>>;
+type IsNotEnumType                         = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, IsNotEnumTrait>;
+type EnumTrait                             = IsEnumTrait<string[]> | IsNotEnumTrait;
 
+// TODO add an override so enum fields can have descriptions
 declare function makeEnum<Name extends string>(name: Name): <Items extends string[]>(...items: Items) => 
-    Type<Name, IsNotInputTrait, IsNotObjectTrait, IsScalarTrait<Items[number]>, IsNotListTrait, IsNotOptionalTrait, IsEnumTrait>;
-declare function enumValues<Values>(t: Type<string, InputTrait, ObjectTrait, IsScalarTrait<Values>, ListTrait, OptionalTrait, IsEnumTrait>):
-    { [value in Values & string]: value };
+    Type<Name, IsNotInputTrait, IsNotObjectTrait, IsScalarTrait<Items[number]>, IsNotListTrait, IsNotOptionalTrait, IsEnumTrait<Items>>;
+declare function enumValues<Members extends string>(t: Type<string, InputTrait, ObjectTrait, IsScalarTrait<Members>, ListTrait, OptionalTrait, IsEnumTrait<Members[]>>):
+    (typeof t)['__typemetadata']['traits']['isEnum']['members'];
 
 /** This method would allow us to have an array as input, but the issue is then the client would need to explicitly supply 'as const'
 declare function makeEnum2<Name extends string, Items extends readonly string[]>(name: Name, items: Items):
@@ -107,13 +110,22 @@ See https://stackoverflow.com/questions/65894238 for more possibilites
 
 /** MVP ENDS HERE */
 
+// Remaining until MVP done:
+// 1. descriptions for all
+// 2. resolvers + dataloader nice interface
+// 3. Split into separate packages
+// 4. Test using Skoville
+
 /**
  * https://spec.graphql.org
  * After MVP we can focus on the following:
- * - Interface & implements
+ * - Interface & implements (+ type confitions. Likely there will be an implementers field to help with this)
  * - Custom scalars
  * - Directives
  * - makeSchema should fail if any types were not supplied.
+ * - fragments. These might not be necessary tbh.
+ * - introspection types.
+ * - field ordering
  */
 
 // Thoughts on descriptions:
@@ -156,28 +168,35 @@ type ObjectQuerySpec<TypeName extends string, Result> = {
 };
 
 // https://spec.graphql.org/June2018/#sec-Single-root-field todo: Subscriptions specifically can have only 1 root field.
-type ObjectQuery<Fields extends ObjectTypeDef, Result, T extends TypeSuperset, OuterQuery extends NestedQueryTracker<any, any, any, any, any> | false> = {
+// todo: when implementing field asliasing, we need to add a generic SelectionSet into the ObjectQuery because we need to ensure some fields which are used become forbidden http://spec.graphql.org/June2018/#sec-Selection-Sets
+//       we will probably need to do some fancy conditional typing since there isn't really a set opposite operator which can be applited to types. Ex: I can't do Exclude<string, 'taken field'>
+type ObjectQuery<ReadOverRefactor extends boolean, Fields extends ObjectTypeDef, Result, T extends TypeSuperset, OuterQuery extends NestedQueryTracker<any, any, any, any, any> | false> = {
     $: OuterQuery extends NestedQueryTracker<infer OuterFields, infer OuterResult, infer OuterType, infer CurrentField, infer OuterOuter> ? 
             ObjectQuery<
-                OuterFields, 
-                OuterResult & {[f in CurrentField]: ResolveListAndOptional<T, Result & {__typename: T['__typemetadata']['name']}>},
-                /* Below makes result type merged and pretty but prevents refactoring of result field alongside schema def
-                TODO: open a typescript issue so that refactors of fields will still work after merging.
-                {[f in keyof OuterResult | CurrentField]:
-                    f extends CurrentField ? 
-                        ResolveListAndOptional<T,
-                            {[ff in keyof Result | '__typename']: ff extends keyof Result ? Result[ff] : ff extends '__typename' ? T['__typemetadata']['name'] : never}
-                        >
-                    : f extends keyof OuterResult ?
-                        OuterResult[f]
-                    : never
-                },*/
+                ReadOverRefactor,
+                OuterFields,
+                ReadOverRefactor extends false ?
+                    OuterResult & {[f in CurrentField]: ResolveListAndOptional<T, Result & {__typename: T['__typemetadata']['name']}>}
+                :
+                    /* Below makes result type merged and pretty but prevents refactoring of result field alongside schema def
+                    TODO: open a typescript issue so that refactors of fields will still work after merging. */
+                    {[f in keyof OuterResult | CurrentField]:
+                        f extends CurrentField ? 
+                            ResolveListAndOptional<T,
+                                {[ff in keyof Result | '__typename']: ff extends keyof Result ? Result[ff] : ff extends '__typename' ? T['__typemetadata']['name'] : never}
+                            >
+                        : f extends keyof OuterResult ?
+                            OuterResult[f]
+                        : never
+                    },
                 OuterType, OuterOuter>
         :
             ObjectQuerySpec<T['__typemetadata']['name'], ResolveListAndOptional<T,
-                Result & {__typename: T['__typemetadata']['name']}
-                // Below makes result type merged and pretty but prevents refactoring of result field alongside schema def
-                //{[f in keyof Result | '__typename']: f extends '__typename' ? T['__typemetadata']['name'] : f extends keyof Result ? Result[f] : never}
+                ReadOverRefactor extends false ?
+                    Result & {__typename: T['__typemetadata']['name']}
+                :
+                    // Below makes result type merged and pretty but prevents refactoring of result field alongside schema def
+                    {[f in keyof Result | '__typename']: f extends '__typename' ? T['__typemetadata']['name'] : f extends keyof Result ? Result[f] : never}
             >>
 } & {
     [field in keyof Fields]:
@@ -188,28 +207,28 @@ type ObjectQuery<Fields extends ObjectTypeDef, Result, T extends TypeSuperset, O
                 FieldType extends IsObjectType<infer SubFields> ?
                     // Has args and is object type
                     (args: GetArgsJsType<Args>) =>
-                    ObjectQuery<SubFields, {}, FieldType, NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
+                    ObjectQuery<ReadOverRefactor, SubFields, {}, FieldType, NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
                 : FieldType extends IsNotObjectType ?
                     // Has args and is not object type
                     (args: GetArgsJsType<Args>) =>
-                    ObjectQuery<Omit<Fields, field>, Result & {[f in field]: ResolveListAndOptional<FieldType, ResolveScalar<FieldType>>}, T, OuterQuery>
+                    ObjectQuery<ReadOverRefactor, Omit<Fields, field>, Result & {[f in field]: ResolveListAndOptional<FieldType, ResolveScalar<FieldType>>}, T, OuterQuery>
                 : never
             : // else (Has no args)
                 FieldType extends IsObjectType<infer SubFields> ?
                     // Has no args and is object type 
-                    ObjectQuery<SubFields, {}, FieldType, NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
+                    ObjectQuery<ReadOverRefactor, SubFields, {}, FieldType, NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
                 : FieldType extends IsNotObjectType ?
                     // Has no args and is not object type
-                    ObjectQuery<Omit<Fields, field>, Result & {[f in field]: ResolveListAndOptional<FieldType, ResolveScalar<FieldType>>}, T, OuterQuery>
+                    ObjectQuery<ReadOverRefactor, Omit<Fields, field>, Result & {[f in field]: ResolveListAndOptional<FieldType, ResolveScalar<FieldType>>}, T, OuterQuery>
                 : never
         : // else (Simple field type)
             // Has no args
             Fields[field] extends IsObjectType<infer SubFields> ?
                 // Has no args and is object type 
-                ObjectQuery<SubFields, {}, Fields[field], NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
+                ObjectQuery<ReadOverRefactor, SubFields, {}, Fields[field], NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
             : Fields[field] extends IsNotObjectType ?
                 // Has no args and is not object type
-                ObjectQuery<Omit<Fields, field>, Result & {[f in field]: ResolveListAndOptional<Fields[field], ResolveScalar<Fields[field]>>}, T, OuterQuery>
+                ObjectQuery<ReadOverRefactor, Omit<Fields, field>, Result & {[f in field]: ResolveListAndOptional<Fields[field], ResolveScalar<Fields[field]>>}, T, OuterQuery>
             : never;
 };
 
@@ -226,8 +245,8 @@ type Schema<Types extends AllowedSchemaTypes> = {
 };
 
 declare function makeSchema<S extends AllowedSchemaTypes & Schema<S>>(types: S): S;
-type Client<S extends Schema<any>> = {
-    query: ObjectQuery<S['Query']['__typemetadata']['traits']['isObjectType']['type'], {}, S['Query'], false>,
+type Client<S extends Schema<any>, ReadOverRefactor extends boolean> = {
+    query: ObjectQuery<ReadOverRefactor, S['Query']['__typemetadata']['traits']['isObjectType']['type'], {}, S['Query'], false>,
     execute: <TypeName extends 'Query' | 'Mutation' | 'Subscription', Result>(spec: ObjectQuerySpec<TypeName, Result>) =>
         TypeName extends 'Query' | 'Mutation' ? 
             Promise<Result> :
@@ -236,13 +255,14 @@ type Client<S extends Schema<any>> = {
             never;
 } & (
     S['Mutation'] extends Type<'Mutation', InputTrait, IsObjectTrait<infer TypeDef>, ScalarTrait, ListTrait, OptionalTrait, EnumTrait> ?
-        {mutation: ObjectQuery<TypeDef, {}, S['Mutation'], false>} : {}
+        {mutation: ObjectQuery<ReadOverRefactor, TypeDef, {}, S['Mutation'], false>} : {}
 ) & (
     S['Subscription'] extends Type<'Subscription', InputTrait, IsObjectTrait<infer TypeDef>, ScalarTrait, ListTrait, OptionalTrait, EnumTrait> ?
-        {subscription: ObjectQuery<TypeDef, {}, S['Subscription'], false>} : {}
+        {subscription: ObjectQuery<ReadOverRefactor, TypeDef, {}, S['Subscription'], false>} : {}
 );
 
-declare function makeClient<S extends Schema<any>>(schema: S): Client<S>;
+declare function makeClient<S extends Schema<any>, R extends boolean>(
+    schema: S, preferReadabilityOverRefactorability: R): Client<S, R>;
 
 export const types = {
     makeObject,
