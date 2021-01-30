@@ -2,6 +2,7 @@
     "compilerOptions": {
         "strict": true,
         "noImplicitAny": true,
+        "experimentalDecorators": true,
         "lib": ["ESNext"]
     }
 }

@@ -20,10 +20,16 @@ field('MyType', {
 
 const MyType = makeEnum('MyType')('One', 'TWO', 'THEE3');
 
+declare function field(...things: any): any
+declare function argument(...things: any): any;
+declare function describe(...things: any): any;
+declare function withArgs(...things: any): any;
+
 const Query = makeObject('Query', () => ({
     /**
-     * My description 2
+     * My description
      */
+    //@thingy()
     test66: {
         desc: 'My description',
         type: HelloWorld,
@@ -34,37 +40,31 @@ const Query = makeObject('Query', () => ({
             one: {
                 desc: 'hello world',
                 type: Maybe(String),
-                dflt: true
+                dflt: 'default value'
             }
         }
     },
-    second: {
-        type: List(Maybe(String)),
-        //args: {}
-    }
+    second: List(Maybe(String))
 }));
 
-declare function field(...things: any): any
-declare function arg(...things: any): any;
-declare function describe(...things: any): any;
-declare function withArgs(...things: any): any;
-
-{
+const Query2 = makeObject('Query', () => ({
+    /**
+     * My description
+     */
     test66: describe(
-        "this field allows someone to have fun, etc.",
-        withArgs(HelloWorld)({
-            test: withDefault(
-
-            )
-        })
-        .withArgs({
+        'My description',
+        field(HelloWorld).withArgs({
+            /**
+             * hello world
+             */
             one: describe(
-                "this is a description of the argument one",
-                arg().withDefault()
+                "hello world",
+                argument(Maybe(String)).withDefault("default value")
             )
         })
-    )
-}
+    ),
+    second: field(Maybe(String))
+}));
 
 const Mutation = makeObject('Mutation', () => ({}))
 

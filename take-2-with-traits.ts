@@ -1,3 +1,25 @@
+type Argument<Description extends DescriptionTrait> = Entity<Description, 'Argument', {
+    
+}>
+
+type Field = {
+
+}
+
+type HasDescriptionTrait =   { hasDescription: string; };
+type HasNoDescriptionTrait = { hasDescription: false };
+type DescriptionTrait = HasDescriptionTrait | HasNoDescriptionTrait;
+
+type Entity<Description extends DescriptionTrait, EntityType extends 'Type' | 'Argument' | 'Field', SubMetaData extends unknown> = {
+    __entitymetadata: {
+        entityType: EntityType;
+        entityTraits: Description;
+        subEntityMetadata: SubMetaData;
+    };
+};
+
+
+
 // Inputs
 type IsNotInputTrait                         = { isInputType: false };
 type IsInputTrait<Args extends ArgumentsDef> = { isInputType: {args: Args} };
@@ -137,7 +159,8 @@ See https://stackoverflow.com/questions/65894238 for more possibilites
 /** END FEATURE SET */
 
 type Type<Name extends string, Input extends InputTrait, Object extends ObjectTrait, Scalar extends ScalarTrait, List extends ListTrait, Optional extends OptionalTrait, Enum extends EnumTrait> = {
-    __typemetadata: {
+    __entitymetadata: {
+        entityType: 'Type';
         name: Name;
         traits: Input & Object & Scalar & List & Optional & Enum;
         description?: string;
