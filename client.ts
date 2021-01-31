@@ -7,7 +7,7 @@ const { scalar: { String }, makeObject, makeSchema, makeEnum, Maybe, List, enumV
 
 const HelloWorld = makeObject('HelloWorld', () => ({
     anotherTwo2: List(String),
-    anotherFive: Maybe(List(MyType))
+    anotherFive: Maybe(List(MyType)).asOutput.withArgs({})
 }))
 
 declare function value(...things: any): any;

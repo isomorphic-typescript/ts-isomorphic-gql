@@ -1,10 +1,25 @@
-type Argument<Description extends DescriptionTrait> = Entity<Description, 'Argument', {
+type InputArgument<Description extends DescriptionTrait> = Entity<Description, 'Argument', {
     
 }>
 
-type Field = {
-
+type OutputField = {
+    [f in never | 'bob']: false
 }
+
+const thingy: Field = {
+    
+}
+
+type WithOptionals = {
+    f1: false;
+    f2: true;
+    f5?: true;
+}
+
+type Hello = {
+    [f in keyof WithOptionals]: WithOptionals[f] extends true ? f : never;
+}
+type extracted = Hello[keyof WithOptionals];
 
 type HasDescriptionTrait =   { hasDescription: string; };
 type HasNoDescriptionTrait = { hasDescription: false };
@@ -18,7 +33,14 @@ type Entity<Description extends DescriptionTrait, EntityType extends 'Type' | 'A
     };
 };
 
+// Field description
+type HasNoFieldDescriptionTrait = { hasFieldDescription: false };
+type HasFieldDescriptionTrait   = { hasFieldDescription: { description: string; }; };
+type FieldDescriptionTrait      = HasNoFieldDescriptionTrait | HasFieldDescriptionTrait;
 
+// Type description
+type HasNoTypeDescriptionTrait  = { hasTypeDescription: false; };
+type HasTypeDescriptionTrait    = { hasTypeDescription: { description: string; }; };
 
 // Inputs
 type IsNotInputTrait                         = { isInputType: false };
@@ -58,6 +80,9 @@ type Field<T extends IsNotInputType, Desc extends string | undefined, Args exten
 
 declare function field(type: IsNotInputType): 
 */
+
+// field description trait & type description trait
+// default trait & arguments trait
 
 // Objects
 type ObjectTypeDefFieldDefWithArgs<T extends IsNotInputType, A extends ArgumentsDef> = { args: A; type: T; };
