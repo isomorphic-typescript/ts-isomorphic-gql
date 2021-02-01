@@ -21,67 +21,46 @@ type Hello = {
 }
 type extracted = Hello[keyof WithOptionals];
 
-type HasDescriptionTrait =   { hasDescription: string; };
-type HasNoDescriptionTrait = { hasDescription: false };
-type DescriptionTrait = HasDescriptionTrait | HasNoDescriptionTrait;
-
-type Entity<Description extends DescriptionTrait, EntityType extends 'Type' | 'Argument' | 'Field', SubMetaData extends unknown> = {
-    __entitymetadata: {
-        entityType: EntityType;
-        entityTraits: Description;
-        subEntityMetadata: SubMetaData;
-    };
-};
-
 // Field description
 type HasNoFieldDescriptionTrait = { hasFieldDescription: false };
 type HasFieldDescriptionTrait   = { hasFieldDescription: { description: string; }; };
 type FieldDescriptionTrait      = HasNoFieldDescriptionTrait | HasFieldDescriptionTrait;
+declare function describeField<>();
 
 // Type description
 type HasNoTypeDescriptionTrait  = { hasTypeDescription: false; };
 type HasTypeDescriptionTrait    = { hasTypeDescription: { description: string; }; };
+type TypeDescriptionTrait       = HasNoTypeDescriptionTrait | HasNoTypeDescriptionTrait;
+declare function describeType<>();
 
 // Inputs
 type IsNotInputTrait                         = { isInputType: false };
-type IsInputTrait<Args extends ArgumentsDef> = { isInputType: {args: Args} };
+type IsInputTrait<Args extends ArgumentsSet> = { isInputType: {args: Args} };
 type IsNotInputType                          = Type<string, IsNotInputTrait,    ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
                                              // Note: we can't paramerize the ones we don't care about with any because any & something = any. See https://github.com/microsoft/TypeScript/issues/42369
-type IsInputType<Args extends ArgumentsDef>  = Type<string, IsInputTrait<Args>, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
-type InputTrait                              = IsNotInputTrait | IsInputTrait<ArgumentsDef>;
+type IsInputType<Args extends ArgumentsSet>  = Type<string, IsInputTrait<Args>, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
+type InputTrait                              = IsNotInputTrait | IsInputTrait<ArgumentsSet>;
 
 // Arguments
-type GetArgsJsType<Args extends ArgumentsDef> = { [field in keyof Args]:
-                                                    Args[field] extends ArgumentsDefFieldDef<infer ArgType> ?
-                                                        ResolveListAndOptional<
-                                                            ArgType,
-                                                            ArgType extends IsScalarType<infer T> ? T
-                                                            : ArgType extends IsInputType<infer SubArgs> ? GetArgsJsType<SubArgs>
-                                                            : never
-                                                        >
-                                                    : Args[field] extends ArgumentsType ?
-                                                        ResolveListAndOptional<
-                                                            Args[field],
-                                                            Args[field] extends IsScalarType<infer T> ? T 
-                                                            : Args[field] extends IsInputType<infer SubArgs> ? GetArgsJsType<SubArgs>
-                                                            : never
-                                                        >
-                                                    : never
+type GetArgsJsType<Args extends ArgumentsSet> = { [field in keyof Args]:
+                                                    ResolveListAndOptional<
+                                                        Args[field],
+                                                        Args[field] extends IsScalarType<infer T> ? T 
+                                                        : Args[field] extends IsInputType<infer SubArgs> ? GetArgsJsType<SubArgs>
+                                                        : never
+                                                    >
                                                 };
-type ArgumentsType                                 = IsInputType<ArgumentsDef> | IsScalarType<unknown>;
+type ArgumentsType                                 = IsInputType<ArgumentsSet> | IsScalarType<unknown>;
 type SingleArgVal<T extends ArgumentsType>         = GetArgsJsType<{field: T}>['field'];
 type ArgumentsDefFieldDef<T extends ArgumentsType, DT extends ArgumentsType = T> = { desc?: string; type: T; dflt?: SingleArgVal<DT>; };
 type ArgumentsDef                                  = { [field: string]: ArgumentsDefFieldDef<ArgumentsType> | ArgumentsType };
+type ArgumentsSet                                  = { [field: string]: ArgumentsType; };
 
-/*
-type Argument<T extends ArgumentsDef, >
-type ArgumentsDef2 = { [field: string]: Argument }
-type Field<T extends IsNotInputType, Desc extends string | undefined, Args extends >
+// Input Argument Default
+type HasNoDefaultTrait = { hasDefault: false; };
+type HasDefaultTrait<Value> = { hasDefault: { value: Value; }; };
+type DefaultTrait = HasNoDefaultTrait | HasDefaultTrait<unknown>;
 
-declare function field(type: IsNotInputType): 
-*/
-
-// field description trait & type description trait
 // default trait & arguments trait
 
 // Objects
