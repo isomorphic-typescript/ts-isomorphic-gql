@@ -3,67 +3,39 @@ import { types, client } from './take-2-with-traits';
 //////////////////////////////
 //       Shared Code        //
 //////////////////////////////
-const { scalar: { String }, makeObject, makeSchema, makeEnum, Maybe, List, enumValues } = types;
+const { scalar: { String }, makeObject, makeSchema, makeEnum, Maybe, List, enumValues, describeField, describeType } = types;
 
 const HelloWorld = makeObject('HelloWorld', () => ({
     anotherTwo2: List(String),
-    anotherFive: Maybe(List(MyType)).asOutput.withArgs({})
+    anotherFive: Maybe(List(MyType)).withArgs({})
 }))
 
-declare function value(...things: any): any;
 
-field('MyType', {
-    One: "",
-    TWO: "",
+const MyType = makeEnum('MyType', {
+    One: undefined,
+    TWO2: undefined,
+    THEE3: undefined,
+});
 
-})
-
-const MyType = makeEnum('MyType')('One', 'TWO', 'THEE3');
-
-declare function field(...things: any): any
-declare function argument(...things: any): any;
-declare function describe(...things: any): any;
-declare function withArgs(...things: any): any;
+enumValues(MyType)
 
 const Query = makeObject('Query', () => ({
     /**
      * My description
      */
-    //@thingy()
-    test66: {
-        desc: 'My description',
-        type: HelloWorld,
-        args: {
+    test66: describeField(
+        "My description",
+        HelloWorld.withArgs({
             /**
              * hello world
              */
-            one: {
-                desc: 'hello world',
-                type: Maybe(String),
-                dflt: 'default value'
-            }
-        }
-    },
-    second: List(Maybe(String))
-}));
-
-const Query2 = makeObject('Query', () => ({
-    /**
-     * My description
-     */
-    test66: describe(
-        'My description',
-        field(HelloWorld).withArgs({
-            /**
-             * hello world
-             */
-            one: describe(
+            one: describeField(
                 "hello world",
-                argument(Maybe(String)).withDefault("default value")
+                Maybe(String).withDefault('default value')
             )
         })
     ),
-    second: field(Maybe(String))
+    second: List(Maybe(String))
 }));
 
 const Mutation = makeObject('Mutation', () => ({}))
@@ -76,15 +48,14 @@ const Schema = makeSchema({HelloWorld, Query, Mutation, MyType});
 const { execute, query, mutation } = client.makeClient(Schema, false);
 
 const result = execute(query
-    .test66({one: ''})
-        //.thingy({gogogo: ''})
-        .anotherFive
+    .test66({})
+        .anotherFive({})
         .anotherTwo2
         .$
     .second
     .$);
 
-result.then(t => t.test66?.anotherTwo2.forEach(thing => thing))
+result.then(t => t.test66?.anotherFive?.forEach(thing => thing))
 
 const thingy = enumValues(MyType).One
 

@@ -1,131 +1,130 @@
-type InputArgument<Description extends DescriptionTrait> = Entity<Description, 'Argument', {
-    
-}>
-
-type OutputField = {
-    [f in never | 'bob']: false
-}
-
-const thingy: Field = {
-    
-}
-
-type WithOptionals = {
-    f1: false;
-    f2: true;
-    f5?: true;
-}
-
-type Hello = {
-    [f in keyof WithOptionals]: WithOptionals[f] extends true ? f : never;
-}
-type extracted = Hello[keyof WithOptionals];
-
 // Field description
 type HasNoFieldDescriptionTrait = { hasFieldDescription: false };
 type HasFieldDescriptionTrait   = { hasFieldDescription: { description: string; }; };
 type FieldDescriptionTrait      = HasNoFieldDescriptionTrait | HasFieldDescriptionTrait;
-declare function describeField<>();
+declare function describeField<Name extends string, Input extends InputTrait, Object extends ObjectTrait, Scalar extends ScalarTrait, List extends ListTrait,
+    Optional extends OptionalTrait, Enum extends EnumTrait, Default extends DefaultTrait, Arguments extends ArgumentsTrait, TypeDescription extends TypeDescriptionTrait>(
+    description: string,
+    type: Type<Name, Input, Object, Scalar, List, Optional, Enum, Default, Arguments, HasNoFieldDescriptionTrait, TypeDescription>
+): Type<Name, Input, Object, Scalar, List, Optional, Enum, Default, Arguments, HasFieldDescriptionTrait, TypeDescription>;
 
 // Type description
 type HasNoTypeDescriptionTrait  = { hasTypeDescription: false; };
 type HasTypeDescriptionTrait    = { hasTypeDescription: { description: string; }; };
-type TypeDescriptionTrait       = HasNoTypeDescriptionTrait | HasNoTypeDescriptionTrait;
-declare function describeType<>();
+type TypeDescriptionTrait       = HasNoTypeDescriptionTrait | HasTypeDescriptionTrait;
+declare function describeType<Name extends string, Input extends InputTrait, Object extends ObjectTrait, Scalar extends ScalarTrait, List extends ListTrait,
+    Optional extends OptionalTrait, Enum extends EnumTrait, Default extends DefaultTrait, Arguments extends ArgumentsTrait, FieldDescription extends FieldDescriptionTrait>(
+    description: string,
+    type: Type<Name, Input, Object, Scalar, List, Optional, Enum, Default, Arguments, FieldDescription, HasNoTypeDescriptionTrait>
+): Type<Name, Input, Object, Scalar, List, Optional, Enum, Default, Arguments, FieldDescription, HasTypeDescriptionTrait>;
 
 // Inputs
 type IsNotInputTrait                         = { isInputType: false };
-type IsInputTrait<Args extends ArgumentsSet> = { isInputType: {args: Args} };
-type IsNotInputType                          = Type<string, IsNotInputTrait,    ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
+type IsInputTrait<Args extends ArgumentsSet> = { isInputType: { args: Args; }; };
+type IsNotInputType                          = Type<string, IsNotInputTrait,    ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
                                              // Note: we can't paramerize the ones we don't care about with any because any & something = any. See https://github.com/microsoft/TypeScript/issues/42369
-type IsInputType<Args extends ArgumentsSet>  = Type<string, IsInputTrait<Args>, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
+type IsInputType<Args extends ArgumentsSet>  = Type<string, IsInputTrait<Args>, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
 type InputTrait                              = IsNotInputTrait | IsInputTrait<ArgumentsSet>;
 
 // Arguments
-type GetArgsJsType<Args extends ArgumentsSet> = { [field in keyof Args]:
-                                                    ResolveListAndOptional<
-                                                        Args[field],
-                                                        Args[field] extends IsScalarType<infer T> ? T 
-                                                        : Args[field] extends IsInputType<infer SubArgs> ? GetArgsJsType<SubArgs>
-                                                        : never
-                                                    >
-                                                };
-type ArgumentsType                                 = IsInputType<ArgumentsSet> | IsScalarType<unknown>;
-type SingleArgVal<T extends ArgumentsType>         = GetArgsJsType<{field: T}>['field'];
-type ArgumentsDefFieldDef<T extends ArgumentsType, DT extends ArgumentsType = T> = { desc?: string; type: T; dflt?: SingleArgVal<DT>; };
-type ArgumentsDef                                  = { [field: string]: ArgumentsDefFieldDef<ArgumentsType> | ArgumentsType };
-type ArgumentsSet                                  = { [field: string]: ArgumentsType; };
+type GetOptionalArgKeys<Args extends ArgumentsSet> = {[field in keyof Args]: Args[field] extends IsOptionalType ? field : never}[keyof Args];
+type GetRequiredArgKeys<Args extends ArgumentsSet> = {[field in keyof Args]: Args[field] extends IsNotOptionalType ? field : never}[keyof Args];
+type GetArgsJsType<Args extends ArgumentsSet>      = { [field in GetOptionalArgKeys<Args>]?:
+                                                        ResolveListAndOptional<
+                                                            Args[field],
+                                                            Args[field] extends IsScalarType<infer T> ? T 
+                                                            : Args[field] extends IsInputType<infer SubArgs> ? GetArgsJsType<SubArgs>
+                                                            : never
+                                                        >
+                                                    } & { [field in GetRequiredArgKeys<Args>]: 
+                                                        ResolveListAndOptional<
+                                                            Args[field],
+                                                            Args[field] extends IsScalarType<infer T> ? T 
+                                                            : Args[field] extends IsInputType<infer SubArgs> ? GetArgsJsType<SubArgs>
+                                                            : never
+                                                        >
+                                                    };
+type ArgumentsSet                                  = { [field: string]: (IsInputType<ArgumentsSet> | IsScalarType<unknown>) & HasNoArgumentsType; };
+type HasNoArgumentsTrait                           = { hasArguments: false; };
+type HasArgumentsTrait<Args extends ArgumentsSet>  = { hasArguments: { args: Args; }; };
+type HasArgumentsType<Args extends ArgumentsSet>   = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, HasArgumentsTrait<Args>, FieldDescriptionTrait, TypeDescriptionTrait>;
+type HasNoArgumentsType                            = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, HasNoArgumentsTrait,     FieldDescriptionTrait, TypeDescriptionTrait>;
+type ArgumentsTrait                                = HasNoArgumentsTrait | HasArgumentsTrait<ArgumentsSet>;
 
 // Input Argument Default
-type HasNoDefaultTrait = { hasDefault: false; };
+type HasNoDefaultTrait      = { hasDefault: false; };
 type HasDefaultTrait<Value> = { hasDefault: { value: Value; }; };
-type DefaultTrait = HasNoDefaultTrait | HasDefaultTrait<unknown>;
-
-// default trait & arguments trait
+type DefaultTrait           = HasNoDefaultTrait | HasDefaultTrait<unknown>;
+type HasNoDefaultType       = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, HasNoDefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
 
 // Objects
-type ObjectTypeDefFieldDefWithArgs<T extends IsNotInputType, A extends ArgumentsDef> = { args: A; type: T; };
-type ObjectTypeDefFieldDef<T extends IsNotInputType, A extends ArgumentsDef> = { desc?: string; args?: A; type: T };
-type ObjectTypeDef                                                           = { [field: string]: ObjectTypeDefFieldDef<IsNotInputType, ArgumentsDef> | IsNotInputType };
+type ObjectTypeDef                                                           = { [field: string]: IsNotInputType & HasNoDefaultType };
 type IsNotObjectTrait                                                        = { isObjectType: false };
 type IsObjectTrait<Fields extends ObjectTypeDef>                             = { isObjectType: {type: Fields;}; };
-type IsNotObjectType                                                         = Type<string, InputTrait, IsNotObjectTrait,      ScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
-type IsObjectType<Fields extends ObjectTypeDef>                              = Type<string, InputTrait, IsObjectTrait<Fields>, ScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
+type IsNotObjectType                                                         = Type<string, InputTrait, IsNotObjectTrait,      ScalarTrait, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
+type IsObjectType<Fields extends ObjectTypeDef>                              = Type<string, InputTrait, IsObjectTrait<Fields>, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
 type ObjectTrait                                                             = IsNotObjectTrait | IsObjectTrait<ObjectTypeDef>;
 
 // Scalars
 type IsNotScalarTrait = { isScalarType: false; };
 type IsScalarTrait<T> = { isScalarType: { jsType: T } };
-type IsNotScalarType  = Type<string, InputTrait, ObjectTrait, IsNotScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
-type IsScalarType<T>  = Type<string, InputTrait, ObjectTrait, IsScalarTrait<T>, ListTrait, OptionalTrait, EnumTrait>;
+type IsNotScalarType  = Type<string, InputTrait, ObjectTrait, IsNotScalarTrait, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
+type IsScalarType<T>  = Type<string, InputTrait, ObjectTrait, IsScalarTrait<T>, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
 type ScalarTrait      = IsNotScalarTrait | IsScalarTrait<unknown>;
 
 // Optional
 // The maybe function must take in a type which is not maybe.
 type IsNotOptionalTrait = { isOptional: false; };
 type IsOptionalTrait    = { isOptional: true; };
-type IsNotOptionalType  = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, IsNotOptionalTrait, EnumTrait>;
-type IsOptionalType     = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, IsOptionalTrait,    EnumTrait>;
+type IsNotOptionalType  = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, IsNotOptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
+type IsOptionalType     = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, IsOptionalTrait,    EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
 type OptionalTrait = IsNotOptionalTrait | IsOptionalTrait;
-declare function Maybe<Name extends string, Input extends InputTrait, Object extends ObjectTrait, Scalar extends ScalarTrait, List extends ListTrait, Enum extends EnumTrait>
-    (type: Type<Name, Input, Object, Scalar, List, IsNotOptionalTrait, Enum>): Type<Name, Input, Object, Scalar, List, IsOptionalTrait, Enum>;
+declare function Maybe<Name extends string, Input extends InputTrait, Object extends ObjectTrait, Scalar extends ScalarTrait, List extends ListTrait, Enum extends EnumTrait, TypeDescription extends TypeDescriptionTrait>
+    (type: Type<Name, Input, Object, Scalar, List, IsNotOptionalTrait, Enum, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescription>)
+    : Type<Name, Input, Object, Scalar, List, IsOptionalTrait, Enum, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescription>;
 
 // Lists
 type IsNotListTrait                                            = { isList: false; };
 type IsListTrait<T extends ListTrait, O extends OptionalTrait> = { isList: { item: T; } & O; };
-type IsNotListType                                             = Type<string, InputTrait, ObjectTrait, ScalarTrait, IsNotListTrait, OptionalTrait, EnumTrait>;
-type IsListType<T extends ListTrait, O extends OptionalTrait>  = Type<string, InputTrait, ObjectTrait, ScalarTrait, IsListTrait<T, O>, OptionalTrait, EnumTrait>;
+type IsNotListType                                             = Type<string, InputTrait, ObjectTrait, ScalarTrait, IsNotListTrait,    OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
+type IsListType<T extends ListTrait, O extends OptionalTrait>  = Type<string, InputTrait, ObjectTrait, ScalarTrait, IsListTrait<T, O>, OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
 type ListTrait                        = IsNotListTrait | IsListTrait<any, OptionalTrait>;
-declare function List<Name extends string, Input extends InputTrait, Object extends ObjectTrait, Scalar extends ScalarTrait, List extends ListTrait, Optional extends OptionalTrait, Enum extends EnumTrait>(
-    type: Type<Name, Input, Object, Scalar, List, Optional, Enum>):
-    Type<Name, Input, Object, Scalar, IsListTrait<List, Optional>, IsNotOptionalTrait, Enum>;
-type ResolveListAndOptional<T extends TypeSuperset, BaseType> =
-    T extends Type<infer Name, infer Input, infer Object, infer Scalar, infer List, infer Optional, infer Enum> ?
-        List extends IsListTrait<infer InnerListTrait, infer InnerOptional> ?
-            Optional extends IsOptionalTrait ?
-                ResolveListAndOptional<Type<Name, Input, Object, Scalar, InnerListTrait, InnerOptional, Enum>, BaseType>[] | undefined
-            :
-                ResolveListAndOptional<Type<Name, Input, Object, Scalar, InnerListTrait, InnerOptional, Enum>, BaseType>[]
+declare function List<Name extends string, Input extends InputTrait, Object extends ObjectTrait, Scalar extends ScalarTrait, List extends ListTrait, Optional extends OptionalTrait, Enum extends EnumTrait, TypeDescription extends TypeDescriptionTrait>(
+    type: Type<Name, Input, Object, Scalar, List, Optional, Enum, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescription>):
+    Type<Name, Input, Object, Scalar, IsListTrait<List, Optional>, IsNotOptionalTrait, Enum, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescription>;
+
+type ResolveListAndOptionalTraits<List extends ListTrait, Optional extends OptionalTrait, BaseType> = 
+    List extends IsListTrait<infer InnerListTrait, infer InnerOptional> ?
+        Optional extends IsOptionalTrait ?
+            ResolveListAndOptionalTraits<InnerListTrait, InnerOptional, BaseType>[] | undefined
         :
-            Optional extends IsOptionalTrait ?
-                BaseType | undefined
-            :
-                BaseType
+            ResolveListAndOptionalTraits<InnerListTrait, InnerOptional, BaseType>[]
+    :
+        Optional extends IsOptionalTrait ?
+            BaseType | undefined
+        :
+            BaseType
+    ;
+
+type ResolveListAndOptional<T extends UnknownType, BaseType> =
+    T extends Type<infer Name, infer Input, infer Object, infer Scalar, infer List, infer Optional, infer Enum, infer Default, infer Arguments, infer FieldDescription, infer TypeDescription> ?
+        ResolveListAndOptionalTraits<List, Optional, BaseType>
     :
         never;
 
 // Enums
-type IsNotEnumTrait                        = { isEnum: false; };
-type IsEnumTrait<Members extends string[]> = { isEnum: { members: { [value in Members[number]]: value } }; };
-type IsEnumType                            = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, IsEnumTrait<string[]>>;
-type IsNotEnumType                         = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, IsNotEnumTrait>;
-type EnumTrait                             = IsEnumTrait<string[]> | IsNotEnumTrait;
+type EnumMembers                              = {[member: string]: string | undefined};
+type IsNotEnumTrait                           = { isEnum: false; };
+type IsEnumTrait<Members extends EnumMembers> = { isEnum: { members: Members; }; };
+type IsEnumType                               = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, IsEnumTrait<EnumMembers>, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
+type IsNotEnumType                            = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, IsNotEnumTrait,           DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
+type EnumTrait                                = IsEnumTrait<EnumMembers> | IsNotEnumTrait;
 
 // TODO add an override so enum fields can have descriptions
-declare function makeEnum<Name extends string>(name: Name): <Items extends string[]>(...items: Items) => 
-    Type<Name, IsNotInputTrait, IsNotObjectTrait, IsScalarTrait<Items[number]>, IsNotListTrait, IsNotOptionalTrait, IsEnumTrait<Items>>;
-declare function enumValues<Members extends string>(t: Type<string, InputTrait, ObjectTrait, IsScalarTrait<Members>, ListTrait, OptionalTrait, IsEnumTrait<Members[]>>):
-    (typeof t)['__typemetadata']['traits']['isEnum']['members'];
+declare function makeEnum<Name extends string, Members extends EnumMembers>(name: Name, members: Members):
+    Type<Name, IsNotInputTrait, IsNotObjectTrait, IsScalarTrait<keyof Members>, IsNotListTrait, IsNotOptionalTrait, IsEnumTrait<Members>, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, HasNoTypeDescriptionTrait>;
+declare function enumValues<Members extends EnumMembers>(t: Type<string, InputTrait, ObjectTrait, IsScalarTrait<keyof Members>, ListTrait, OptionalTrait, IsEnumTrait<Members>, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>):
+    {[member in keyof Members]: member};
 
 /** This method would allow us to have an array as input, but the issue is then the client would need to explicitly supply 'as const'
 declare function makeEnum2<Name extends string, Items extends readonly string[]>(name: Name, items: Items):
@@ -162,26 +161,46 @@ See https://stackoverflow.com/questions/65894238 for more possibilites
 
 /** END FEATURE SET */
 
-type Type<Name extends string, Input extends InputTrait, Object extends ObjectTrait, Scalar extends ScalarTrait, List extends ListTrait, Optional extends OptionalTrait, Enum extends EnumTrait> = {
-    __entitymetadata: {
-        entityType: 'Type';
-        name: Name;
-        traits: Input & Object & Scalar & List & Optional & Enum;
-        description?: string;
-    };
+type Type<Name extends string, Input extends InputTrait, Object extends ObjectTrait, Scalar extends ScalarTrait, List extends ListTrait, Optional extends OptionalTrait, Enum extends EnumTrait,
+    Default extends DefaultTrait, Arguments extends ArgumentsTrait, FieldDescription extends FieldDescriptionTrait, TypeDescription extends TypeDescriptionTrait> = {
+    [field in (
+        '__typemetadata' | 
+        (Arguments extends HasNoArgumentsTrait ? Default extends HasNoDefaultTrait ? Input extends IsNotInputTrait ? 'withArgs' : never : never : never) |
+        (Default extends HasNoDefaultTrait ? Arguments extends HasNoArgumentsTrait ? Object extends IsNotObjectTrait ? 'withDefault' : never : never : never)
+    )]:
+        field extends '__typemetadata' ?
+            {
+                name: Name;
+                traits: {
+                    input: Input;
+                    object: Object;
+                    scalar: Scalar;
+                    list: List;
+                    optional: Optional;
+                    enum: Enum;
+                    default: Default;
+                    arguments: Arguments;
+                    fieldDescription: FieldDescription;
+                    typeDescription: TypeDescription;
+                };
+            }
+        : field extends 'withArgs' ? <Args extends ArgumentsSet>(args: Args) => Type<Name, Input, Object, Scalar, List, Optional, Enum, Default, HasArgumentsTrait<Args>, FieldDescription, TypeDescription>
+        : field extends 'withDefault' ? <DefaultValue extends ResolveListAndOptionalTraits<List, Optional, Input extends IsInputTrait<infer Args> ? GetArgsJsType<Args> : Scalar extends IsScalarTrait<infer BaseT> ? BaseT : never>>
+            (value: DefaultValue) => Type<Name, Input, Object, Scalar, List, Optional, Enum, HasDefaultTrait<DefaultValue>, Arguments, FieldDescription, TypeDescription>
+        : never;
 };
-type TypeSuperset = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
+type UnknownType = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait, FieldDescriptionTrait, TypeDescriptionTrait>;
 
-declare const String: Type<'String', IsNotInputTrait, IsNotObjectTrait, IsScalarTrait<string>, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait>;
+declare const String: Type<'String', IsNotInputTrait, IsNotObjectTrait, IsScalarTrait<string>, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, HasNoTypeDescriptionTrait>;
 
 
 declare function makeObject<Name extends string, Fields extends ObjectTypeDef>(name: Name, fieldsCreator: () => Fields): 
-    Type<Name, IsNotInputTrait, IsObjectTrait<Fields>, IsNotScalarTrait, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait>;
+    Type<Name, IsNotInputTrait, IsObjectTrait<Fields>, IsNotScalarTrait, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, HasNoTypeDescriptionTrait>;
 
 
 type ResolveScalar<T extends IsNotObjectType> = T extends IsScalarType<infer JSType> ? JSType : never;
 
-type NestedQueryTracker<OuterFields extends ObjectTypeDef, OuterResult, OuterType extends TypeSuperset, CurrentField extends string|number|symbol, OuterOuter extends NestedQueryTracker<any, any, any, any, any> | false> = {
+type NestedQueryTracker<OuterFields extends ObjectTypeDef, OuterResult, OuterType extends UnknownType, CurrentField extends string|number|symbol, OuterOuter extends NestedQueryTracker<any, any, any, any, any> | false> = {
     outerFieldsRemaining: OuterFields;
     outerResult: OuterResult;
     outerType: OuterType;
@@ -197,7 +216,7 @@ type ObjectQuerySpec<TypeName extends string, Result> = {
 // https://spec.graphql.org/June2018/#sec-Single-root-field todo: Subscriptions specifically can have only 1 root field.
 // todo: when implementing field asliasing, we need to add a generic SelectionSet into the ObjectQuery because we need to ensure some fields which are used become forbidden http://spec.graphql.org/June2018/#sec-Selection-Sets
 //       we will probably need to do some fancy conditional typing since there isn't really a set opposite operator which can be applited to types. Ex: I can't do Exclude<string, 'taken field'>
-type ObjectQuery<ReadOverRefactor extends boolean, Fields extends ObjectTypeDef, Result, T extends TypeSuperset, OuterQuery extends NestedQueryTracker<any, any, any, any, any> | false> = {
+type ObjectQuery<ReadOverRefactor extends boolean, Fields extends ObjectTypeDef, Result, T extends UnknownType, OuterQuery extends NestedQueryTracker<any, any, any, any, any> | false> = {
     $: OuterQuery extends NestedQueryTracker<infer OuterFields, infer OuterResult, infer OuterType, infer CurrentField, infer OuterOuter> ? 
             ObjectQuery<
                 ReadOverRefactor,
@@ -227,29 +246,18 @@ type ObjectQuery<ReadOverRefactor extends boolean, Fields extends ObjectTypeDef,
             >>
 } & {
     [field in keyof Fields]:
-        Fields[field] extends ObjectTypeDefFieldDef<infer FieldType, infer Args> ?
-            // Complex field type
-            Fields[field]['args'] extends ArgumentsDef ?
-                // Has args
-                FieldType extends IsObjectType<infer SubFields> ?
-                    // Has args and is object type
-                    (args: GetArgsJsType<Args>) =>
-                    ObjectQuery<ReadOverRefactor, SubFields, {}, FieldType, NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
-                : FieldType extends IsNotObjectType ?
-                    // Has args and is not object type
-                    (args: GetArgsJsType<Args>) =>
-                    ObjectQuery<ReadOverRefactor, Omit<Fields, field>, Result & {[f in field]: ResolveListAndOptional<FieldType, ResolveScalar<FieldType>>}, T, OuterQuery>
-                : never
-            : // else (Has no args)
-                FieldType extends IsObjectType<infer SubFields> ?
-                    // Has no args and is object type 
-                    ObjectQuery<ReadOverRefactor, SubFields, {}, FieldType, NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
-                : FieldType extends IsNotObjectType ?
-                    // Has no args and is not object type
-                    ObjectQuery<ReadOverRefactor, Omit<Fields, field>, Result & {[f in field]: ResolveListAndOptional<FieldType, ResolveScalar<FieldType>>}, T, OuterQuery>
-                : never
-        : // else (Simple field type)
-            // Has no args
+        Fields[field] extends HasArgumentsType<infer Args> ?
+            // Has args
+            Fields[field] extends IsObjectType<infer SubFields> ?
+                // Has args and is object type
+                (args: GetArgsJsType<Args>) =>
+                ObjectQuery<ReadOverRefactor, SubFields, {}, Fields[field], NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
+            : Fields[field] extends IsNotObjectType ?
+                // Has args and is not object type
+                (args: GetArgsJsType<Args>) =>
+                ObjectQuery<ReadOverRefactor, Omit<Fields, field>, Result & {[f in field]: ResolveListAndOptional<Fields[field], ResolveScalar<Fields[field]>>}, T, OuterQuery>
+            : never
+        : // else (Has no args)
             Fields[field] extends IsObjectType<infer SubFields> ?
                 // Has no args and is object type 
                 ObjectQuery<ReadOverRefactor, SubFields, {}, Fields[field], NestedQueryTracker<Omit<Fields, field>, Result, T, field, OuterQuery>>
@@ -264,16 +272,16 @@ type AllowedSchemaTypes = {
     [typeName: string]: unknown;
 };
 type Schema<Types extends AllowedSchemaTypes> = {
-    [TypeName in keyof Types & string]: Type<TypeName, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait>;
+    [TypeName in keyof Types & string]: Type<TypeName, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescriptionTrait>;
 } & {
-    Query: Type<'Query', IsNotInputTrait, IsObjectTrait<any>, IsNotScalarTrait, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait>;
-    Mutation?: Type<'Mutation', IsNotInputTrait, IsObjectTrait<any>, IsNotScalarTrait, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait>;
-    Subscription?: Type<'Subscription', IsNotInputTrait, IsObjectTrait<any>, IsNotScalarTrait, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait>;
+    Query: Type<'Query', IsNotInputTrait, IsObjectTrait<any>, IsNotScalarTrait, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescriptionTrait>;
+    Mutation?: Type<'Mutation', IsNotInputTrait, IsObjectTrait<any>, IsNotScalarTrait, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescriptionTrait>;
+    Subscription?: Type<'Subscription', IsNotInputTrait, IsObjectTrait<any>, IsNotScalarTrait, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescriptionTrait>;
 };
 
 declare function makeSchema<S extends AllowedSchemaTypes & Schema<S>>(types: S): S;
 type Client<S extends Schema<any>, ReadOverRefactor extends boolean> = {
-    query: ObjectQuery<ReadOverRefactor, S['Query']['__typemetadata']['traits']['isObjectType']['type'], {}, S['Query'], false>,
+    query: ObjectQuery<ReadOverRefactor, S['Query']['__typemetadata']['traits']['object']['isObjectType']['type'], {}, S['Query'], false>,
     execute: <TypeName extends 'Query' | 'Mutation' | 'Subscription', Result>(spec: ObjectQuerySpec<TypeName, Result>) =>
         TypeName extends 'Query' | 'Mutation' ? 
             Promise<Result> :
@@ -281,10 +289,10 @@ type Client<S extends Schema<any>, ReadOverRefactor extends boolean> = {
             AsyncIterable<Result> :
             never;
 } & (
-    S['Mutation'] extends Type<'Mutation', InputTrait, IsObjectTrait<infer TypeDef>, ScalarTrait, ListTrait, OptionalTrait, EnumTrait> ?
-        {mutation: ObjectQuery<ReadOverRefactor, TypeDef, {}, S['Mutation'], false>} : {}
+    Required<S>['Mutation'] extends Type<'Mutation', IsNotInputTrait, IsObjectTrait<infer TypeDef>, IsNotScalarTrait, IsNotListTrait, IsNotOptionalTrait, IsNotEnumTrait, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescriptionTrait> ?
+        {mutation: ObjectQuery<ReadOverRefactor, TypeDef, {}, Required<S>['Mutation'], false>} : {}
 ) & (
-    S['Subscription'] extends Type<'Subscription', InputTrait, IsObjectTrait<infer TypeDef>, ScalarTrait, ListTrait, OptionalTrait, EnumTrait> ?
+    S['Subscription'] extends Type<'Subscription', InputTrait, IsObjectTrait<infer TypeDef>, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, HasNoDefaultTrait, HasNoArgumentsTrait, HasNoFieldDescriptionTrait, TypeDescriptionTrait> ?
         {subscription: ObjectQuery<ReadOverRefactor, TypeDef, {}, S['Subscription'], false>} : {}
 );
 
@@ -296,6 +304,8 @@ export const types = {
     makeSchema,
     makeEnum,
     enumValues,
+    describeField,
+    describeType,
     List,
     Maybe,
     scalar: {
