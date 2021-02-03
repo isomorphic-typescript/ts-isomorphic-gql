@@ -60,7 +60,7 @@ const Publisher = makeObject('Publisher', () => ({
 
 const Name = makeObject('Name', () => ({
     firstName: String,
-    middleName: Maybe(String)
+    middleName: Maybe(String),
     lastName: String
 }));
 
@@ -70,7 +70,7 @@ const Author = makeObject('Author', () => ({
     birthDate: [
         'Epoch millis since date of birth',
         Int
-    ]
+    ],
     books: List(Book),
     /** A famous quote from the author */
     quote: [
@@ -84,7 +84,7 @@ const Book = makeObject('Book', () => ({
     publishedDate: [
         'Epoch millis since date the book was published'
         Int
-    ]
+    ],
     blurb: String.withArgs({
         /** After this number of words in the blurb, elipses will follow */
         cutoffWord: [
@@ -233,15 +233,17 @@ The great thing is both right-click go-to-definition and refactor name on any of
 
 # FAQs
 
-* Why are the type tooltips and error messages so awful? This is because the library has many deeply recursive TS types. I'm working on improving this part of the dev XP extensively once the library is feature-complete with respect to the official GraphQL spec. For now the minimum bar for commits is that the compiler only allows correct code to pass: generating correct return types and only allowing correct inputs/field access.
+* **Why are the type tooltips and error messages so awful?**
+
+ This is because the library has many deeply-recursive TS types. I will be working on improving this part of the dev XP extensively once the library is feature-complete with respect to the official GraphQL spec. For now the minimum bar for commits is that the compiler only allows correct code to pass: generating correct return types and only allowing correct inputs/field queries.
 
 # Work In Progress
 
-At this point most of the library (notice that I haven't added the resolver API section of the tutorial yet) is incomplete. I do have a proof of concept working with the Schema definition and type-safe querying from the client-side, but as of now that's it. At MVP I probably won't have existing schema to client code gen working, but this will be a fast-follow since many people consume GraphQL APIs which they did not write themselves, and such a tool will make it easier for people to amalgamate 3rd-party schema types into their own schema.
+At this point most of the library (notice that I haven't added the resolver API section of the tutorial yet) is incomplete. I do have a proof of concept working with the Schema definition and type-safe querying from the client-side, but as of now that's it. At MVP the library probably won't have a tool for transpiling an existing schema to a ts-isomorphic-gql code representation, but this will be a fast-follow since many people consume GraphQL APIs which they did not write themselves, and such a tool will make it easier for people to amalgamate 3rd-party schema types into their own schema.
 
 # Support
 
-I wish I could work on open source full-time.
+Right now I have a full-time job in tech, but I believe I could provide more value to the world if I could work on open source full-time. Please consider helping me with that:
 
 - Ethereum address:
 - Cardano address: 
@@ -253,4 +255,4 @@ Donation breakdown:
 1. TODO: get some dynamically generated text or image here to show breakdown of donations over last period of time.
 
 
-If you solicit me for a job opportunity, please open with compensation details, otherwise I might not reply.
+If you're interested in hiring me full-time or for consulting, please open with compensation details, otherwise I might not reply.
