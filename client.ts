@@ -19,7 +19,7 @@ const NestedObj = makeObject('NestedObj', () => ({
 }));
 
 const MyType = makeEnum('MyType', {
-    One: [],
+    One4: [],
     TWO2: [],
     THEE3: [],
 });
@@ -42,7 +42,8 @@ const Query = makeObject('Query', "", () => ({
             /** hi */
             arg44: [List(String)]
             ,
-            three: Maybe(String)
+            three: Maybe(String).withDefault(''),
+            four: MyType
         })
     ],
     nObj4: [NestedObj],
@@ -61,7 +62,7 @@ const Schema = makeSchema({HelloWorld: HelloWorld2, Query, Mutation, MyType});
 const { execute, query, mutation } = client.makeClient(Schema);
 
 const result = execute(query
-    .test69({arg44: [], one33: "", three: ""})
+    .test69({arg44: [], one33: "", three: "", four: enumValues(MyType).One4})
         .anotherFive({})
         .anotherTwo2
         .nestedOb3({})
@@ -80,7 +81,7 @@ async function main() {
 }
 result.then(t => t.test69.nestedOb3.__typename)
 
-const thingy = enumValues(MyType).One
+const thingy = enumValues(MyType).One4
 
 const mutres = execute(mutation.$)
 

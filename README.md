@@ -2,6 +2,11 @@
 
 - [Intro](#intro)
 - [Usage](#usage)
+  - [Define Your Schema](#define-your-schema)
+  - [Instantiate The Client](#instantiate-the-client)
+  - [Query Your API](#Query-Your-API)
+  - [Resolvers](#resolvers)
+  - [N + 1 Problem (typesafe dataloader)](#n--1-problem-typesafe-dataloader)
 - [FAQs](#faqs)
 - [Work In Progress](#work-in-progress)
 - [Support](#support)
@@ -28,9 +33,11 @@ This library is intended for GraphQL and TypeScript adopters who want to separat
 
 `yarn add @isomorphic-typescript/ts-isomorphic-gql-define` in your isomorphic package (the package shared between client and server).
 
-**Opinion**: NPM is an abomination compared to Yarn 2 because Yarn 2 fixes Node's broken module resolution algorithm through Plug N' Play loading, allowing Yarn 2 to have [perfect hoisting](https://yarnpkg.com/features/pnp#fixing-node_modules) of all packages in a monorepo whereas npm allows any package to use a hoisted module even if the package doesn't declare the hoisted package as a dependency in package.json whereas Yarn only allows imports/requires of modules which are explicitly declared as a package's dependency, and in addition npm's symlinking between packages in the same monorepo creates issues for non-hoisted modules where there are duplicate versions of the same 3rd-party module being loaded into the program since there are multiple nested node_modules in each monorepo package, which creates problems for projects such as the `graqphql` package [which runtime-checks to see if the instances of objects are identical](https://github.com/graphql/graphql-js/blob/607345275f60e07dba1b7156a23b9ddf8b086fc9/src/jsutils/instanceOf.js#L27-L39) (so duplicate loaded graphql modules will cause runtime failures, therefore [pnpm](https://pnpm.js.org/) monorepos suffer from this issue too).
+**Opinion**: NPM should be abandoned in favor of Yarn 2 because Yarn 2 fixes Node's broken module resolution algorithm through Plug N' Play loading, allowing Yarn 2 to have [perfect hoisting](https://yarnpkg.com/features/pnp#fixing-node_modules) of all packages in a monorepo whereas npm allows any package to use a hoisted module even if the package doesn't declare the hoisted package as a dependency in package.json whereas Yarn only allows imports/requires of modules which are explicitly declared as a package's dependency, and in addition npm's symlinking between packages in the same monorepo creates issues for non-hoisted modules where there are duplicate versions of the same 3rd-party module being loaded into the program since there are multiple nested node_modules in each monorepo package, which creates problems for projects such as the `graqphql` package [which runtime-checks to see if the instances of objects are identical](https://github.com/graphql/graphql-js/blob/607345275f60e07dba1b7156a23b9ddf8b086fc9/src/jsutils/instanceOf.js#L27-L39) (so duplicate loaded graphql modules will cause runtime failures, therefore [pnpm](https://pnpm.js.org/) monorepos suffer from this issue too).
 
 **END RANT**. back to the tutorial.
+
+## Define Your Schema
 
 In your isomorphic package, you will define your GraphQL schema like so
 
@@ -42,7 +49,13 @@ const { List, Maybe, makeObject, makeSchema, scalars: { ID, String, Int, Boolean
 const Publisher = makeObject('Publisher', () => ({
     name: String,
     incorporatedDate: Int,
-    authors: List(Author)({howMany: Int})
+    authors: List(Author).withArgs({
+        /** Number of authors to retrieve */
+        howMany: [
+            "Number of authors to retrieve",
+            Maybe(Int).withDefault(20)
+        ]
+    })
 }));
 
 const Name = makeObject('Name', () => ({
@@ -53,45 +66,87 @@ const Name = makeObject('Name', () => ({
 
 const Author = makeObject('Author', () => ({
     name: Name,
-    birthDate: Int`Epoch millis since date of birth`,
+    /** Epoch millis since date of birth */
+    birthDate: [
+        'Epoch millis since date of birth',
+        Int
+    ]
     books: List(Book),
-    quote: String`A famous quote from the author`
+    /** A famous quote from the author */
+    quote: [
+        'A famous quote from the author',
+        String
+    ]
 }));
 
 const Book = makeObject('Book', () => ({
     name: String,
-    publishedDate: Int`Epoch millis since date the book was published`,
-    blurb: String({cutoffWord: Int})`Book blurb up until "cutoffWord" number of words, followed by ellipses`,
+    publishedDate: [
+        'Epoch millis since date the book was published'
+        Int
+    ]
+    blurb: String.withArgs({
+        /** After this number of words in the blurb, elipses will follow */
+        cutoffWord: [
+            'After this number of words in the blurb, elipses will follow',
+            Maybe(Int).withDefault(100),
+        ]
+    }),
     author: Author,
     publisher: Publisher
 }));
 
 const Query = makeObject('Query', () => ({
-    getBooks: List(Book)({startDate: Int, endDate: Int})`List of all books published within a time range`,
-    getAuthor: Author({id: Int})`Get a specific author`
+    getBooks: [
+        'List of all books published within a time range',
+        List(Book).withArgs({startDate: Int, endDate: Int})
+    ],
+    getAuthor: [
+        'Get a specific author',
+        Author.withArgs({id: Int})
+    ]
 }));
 
 export const Schema = makeSchema({Query, Name, Author, Book, Publisher});
 ```
 
-Each created type has two functions: 
-
-1. One function takes in an object which is how you create a field that accepts arguments. So when querying the blurb field from the client, the client will be required to pass a `cutoffWord` arg lest they incur a compiler error
+The `withArgs` method is available to Scalar, Enum, and Object types. It takes in an object of mappings from argument name to Scalar, Enum, or Input types. Understandably, Input types can not have args of their own since they are an argument.
 
 ```ts
-blurb: String({cutoffWord: String}),
+List(Book).withArgs({startDate: Int, endDate: Int})
 ```
 
-2. The second function implements the tagged template interface, and it allows you to add a [GraphQL  description](https://www.apollographql.com/docs/apollo-server/schema/schema/#documentation-strings) to your field or type. GraphQL's spec includes field and type descriptions in the schema, so clients will be able to see these descriptions as field/type tooltips in their IDE & in API explorer GUIs like graphiql or GraphQL Playground. Unfortunately, TypeScript comments cannot be parsed at runtime [unlike in Rust via macros](https://users.rust-lang.org/t/macro-to-substitute-code-comments/34870), so whereas the tagged template method will add the description to the generated GraphQL schema, if you want IDE descriptions to show up when hovering over fields that you're querying, you'll need to also add a block comment of the description above the field as well. I may make a [ttypescript plugin](https://github.com/cevek/ttypescript) so the description only need-be added once in the future. Another workaround if you don't want to repeat the description twise is to just write the description in the template format then use the go-to-definition in your IDE when querying on the client-side, which will take you directly to the in-code schema definition.
+The `withDefault` method is applied to an argument (Input, Scalar, Enum types and not Object types). It will require you provide the resolved JS value of the type.
 
 ```ts
-/**
- * Epoch millis since date the book was published
- */
-publishedDate: Int`Epoch millis since date the book was published`,
+Maybe(Int).withDefault(100),
 ```
 
+In order to add a [GraphQL  description](https://www.apollographql.com/docs/apollo-server/schema/schema/#documentation-strings) to Object, Input and argument fields, you must pass wrap your field type in an array and have the description be the first item.
+
+```ts
+getBooks: [
+    'List of all books published within a time range',
+    List(Book).withArgs({startDate: Int, endDate: Int})
+],
+```
+
+GraphQL's spec includes field and type descriptions in the schema, so clients will be able to see these descriptions as field/type tooltips in API explorer GUIs like graphiql or GraphQL Playground. Unfortunately, TypeScript comments cannot be parsed at runtime [unlike in Rust via macros](https://users.rust-lang.org/t/macro-to-substitute-code-comments/34870). So while the description in the array will make its way to the generated GraphQL schema, if you want IDE descriptions to show up when hovering over fields that you're querying and in response objects, you'll need to also add a block comment of the description above the field as well. In the future if this project gets supported I will make a [ttypescript plugin](https://github.com/cevek/ttypescript) so only the block comment description will need to be included, but for now you'll need to do this if you want descriptions to show up in both VSCode and GraphQL Playground:
+
+```ts
+/** After this number of words in the blurb, elipses will follow */
+cutoffWord: [
+    'After this number of words in the blurb, elipses will follow',
+    Maybe(Int).withDefault(100),
+]
+```
 // TODO: gif here showing the description show up on-hover.
+
+Another workaround if you don't want to repeat the description twise is to just write the description in the array format then use the go-to-definition in your IDE when querying on the client-side, which will take you directly to the in-code schema definition.
+
+// TODO: gif here showing go-to-definition.
+
+## Instantiate The Client
 
 In your client package, you will import your schema and use it to instantiate a client instance. The client instance also takes an object which implements a transport interface. In this way, you can implement/optimize the way GraphQL is sent over the wire in any way you want. Perhaps you want to only use websockets, perhaps you want to compress the JSON or encrypt all strings before sending it over, perhaps you want to use the default HTTP 1.0 POST on path `/graphql` which most GraphQL servers today anticipate even though this has never been part of the official GraphQL spec as is damn inefficient; the choice is yours.
 
@@ -108,7 +163,7 @@ const { execute, query, mutation, subscription } = makeClient(
 );
 ```
 
-Next you query
+## Query Your API
 
 ```ts
 const response = await execute(query
@@ -132,9 +187,9 @@ const response = await execute(query
 ```
 The above query is fully type-safe. Misspelling any fields, re-using fields, and querying any fields without args when an arg is required will all result in a compilation error. You'll notice that the intellisense will restrict the amount of remaining fields you can query as you use more of them.
 
-// TODO: gif here showing the query being typed-out
-
 The `$` attribute is a special attribute denoting that you've finished querying fields on the current object type and would like to resume querying remaining fields on the object type 1 level up.
+
+// TODO: gif here showing the query being typed-out
 
 The `response` const will have the type signature of 
 
@@ -171,6 +226,10 @@ Notice that the return type has no more and no less than the query, since types 
 The great thing is both right-click go-to-definition and refactor name on any of the query fields you wrote will change the name in the schema, and vice-versa.
 
 // TODO: gif showing refactor occur between the schema and client files
+
+## Resolvers
+
+## N + 1 Problem (typesafe dataloader)
 
 # FAQs
 

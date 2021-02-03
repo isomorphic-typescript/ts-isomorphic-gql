@@ -38,9 +38,7 @@ type GetArgumentsSetFromClient<Fields extends ArgumentsFields> = { [field in key
                                                                     : never
                                                                 };
 type ArgumentsFields                               = { [field: string]: ([string, ValidArgumentFieldType] | ValidArgumentFieldType | [ValidArgumentFieldType]); };
-type ValidArgumentFieldType                        = IsScalarType<unknown>  //(
-                                                     //   IsInputType<ArgumentsSet> | IsScalarType<unknown>
-                                                     //) & HasNoArgumentsType;
+type ValidArgumentFieldType                        = (IsInputType<ArgumentsSet> | IsScalarType<unknown>) & HasNoArgumentsType;
 type ArgumentsSet                                  = { [field: string]: { type: ValidArgumentFieldType; description?: string; }; };
 type HasNoArgumentsTrait                           = { hasArguments: false; };
 type HasArgumentsTrait<Args extends ArgumentsSet>  = { hasArguments: { args: Args; }; };
@@ -149,6 +147,7 @@ See https://stackoverflow.com/questions/65894238 for more possibilites
 /** MVP ENDS HERE */
 
 // Remaining until MVP done:
+// 0. makeInput fn, all the scalars
 // 1. only a certain number of fields allowed when doing subscriptions and mutations.
 // 2. resolvers + dataloader nice interface
 // 3. Split into separate packages
@@ -234,12 +233,12 @@ type ObjectQuery<Fields extends ObjectTypeDef, Result, T extends IsObjectType<Ob
                 Omit<OuterFields, CurrentField>,
                 {
                     // This is needed in order to preserve both refactorability of result fields to schema fields to query fields linkages and to not make the result look like a bunch of & & & & &s
-                    [field in keyof (OuterResult & {[f in CurrentField]: ResolveListAndOptional<T, Result & {__typename: T['__typemetadata']['name']}>})]:
+                    [field in keyof (OuterResult & {[f in CurrentField]: ResolveListAndOptional<T, {__typename: T['__typemetadata']['name']} & Result>})]:
                         (OuterResult & {
                             [f in CurrentField]: ResolveListAndOptional<T, 
                                 {
-                                    [innerField in keyof (Result & {__typename: T['__typemetadata']['name']})]:
-                                        (Result & {__typename: T['__typemetadata']['name']})[innerField]
+                                    [innerField in keyof ({__typename: T['__typemetadata']['name']} & Result)]:
+                                        ({__typename: T['__typemetadata']['name']} & Result)[innerField]
                                 }
                             >
                         })[field]
@@ -248,8 +247,8 @@ type ObjectQuery<Fields extends ObjectTypeDef, Result, T extends IsObjectType<Ob
         :
             ObjectQuerySpec<T['__typemetadata']['name'], ResolveListAndOptional<T,
                 {
-                    [field in keyof (Result & {__typename: T['__typemetadata']['name']})]:
-                        (Result & {__typename: T['__typemetadata']['name']})[field];
+                    [field in keyof ({__typename: T['__typemetadata']['name']} & Result)]:
+                        ({__typename: T['__typemetadata']['name']} & Result)[field];
                 }
             >>
 } & {
