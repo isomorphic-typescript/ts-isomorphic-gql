@@ -6,7 +6,8 @@
   - [Instantiate The Client](#instantiate-the-client)
   - [Query Your API](#Query-Your-API)
   - [Resolvers](#resolvers)
-  - [N + 1 Problem (typesafe dataloader)](#n--1-problem-typesafe-dataloader)
+  - [N + 1 Problem (a typesafe dataloader and context)](#n--1-problem-a-typesafe-dataloader-and-context)
+  - [Standard vs Custom Transport Layers](#Standard-vs-Custom-Transport-Layers)
 - [FAQs](#faqs)
 - [Work In Progress](#work-in-progress)
 - [Support](#support)
@@ -229,7 +230,11 @@ The great thing is both right-click go-to-definition and refactor name on any of
 
 ## Resolvers
 
-## N + 1 Problem (typesafe dataloader)
+## N + 1 Problem (a typesafe dataloader and context
+
+In many ways the N + 1 problem if not solved is the biggest trade-off when adopting GraphQL because it is an [extremely expensive problem](https://medium.com/@bretdoucette/n-1-queries-and-how-to-avoid-them-a12f02345be5). Luckily, we have the[dataloader pattern]() which we can use to eliminate the problem from a time complexity perspective. GraphQL will still result in more overall database/dependency queries than a more bespoke server implementation which can write perfect joins unless you're using [Join Monster](https://github.com/join-monster/join-monster), but from a complexity standpoint using dataloader will make the number of depencency calls increase logarithmically rather than linearly. So bespoke servers may be able to resolve in O(1), GraphQL with dataloader in O(log(N)) and GraphQL without dataloader in O(N) dependency queries. Log(N) is and acceptable complexity given the benefit of not needing to write a new API for each new client use-case and maintain both batch and singular APIs which is often the case with bespoke servers.
+All that said, it's important that data loaders are a first-class citizen of GraphQL resolving libraries to encourage batching up-front. The last thing we want is for [data loaders to be an afterthought which can only be shoehorned in using some hack](https://github.com/MichalLytek/type-graphql/issues/51#issuecomment-408556675).
+## Standard vs Custom Transport Layers
 
 # FAQs
 
@@ -239,7 +244,8 @@ The great thing is both right-click go-to-definition and refactor name on any of
 
 # Work In Progress
 
-At this point most of the library (notice that I haven't added the resolver API section of the tutorial yet) is incomplete. I do have a proof of concept working with the Schema definition and type-safe querying from the client-side, but as of now that's it. At MVP the library probably won't have a tool for transpiling an existing schema to a ts-isomorphic-gql code representation, but this will be a fast-follow since many people consume GraphQL APIs which they did not write themselves, and such a tool will make it easier for people to amalgamate 3rd-party schema types into their own schema.
+- At this point most of the library (notice that I haven't added the resolver API section of the tutorial yet) is incomplete. I do have a proof of concept working with the Schema definition and type-safe querying from the client-side, but as of now that's it. 
+- At MVP the library probably won't have a tool for transpiling an existing schema to a ts-isomorphic-gql code representation, but this will be a fast-follow since many people consume GraphQL APIs which they did not write themselves, and such a tool will make it easier for people to amalgamate 3rd-party schema types into their own schema. It would be greate if we could use [type providers](https://github.com/microsoft/TypeScript/issues/3136) to generate the types so there would be no special CLIs required other than the standard typescript compiler and language server. Otherwise we could find a way to get this working with a ttypescript plugin. Worst case would be a CLI to do the generation. I hate having multiple CLIs running in watch mode though.
 
 # Support
 

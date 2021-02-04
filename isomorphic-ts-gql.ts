@@ -163,7 +163,7 @@ See https://stackoverflow.com/questions/65894238 for more possibilites
  * - fragments. These might not be necessary tbh. + inline fragments
  * - introspection types.
  * - field ordering
- * - field aliases
+ * - field aliases (an idea here: have $alias({}) is takes in an object where keys are taken keys mapped to never whereas other keys allowed, then value is fn which takes in query obj w/ existing keys. This must return the same type as $ since after alias it's tough to limit remaining keys to those not used in alias?)
  */
 
 // Thoughts on descriptions:
@@ -179,7 +179,8 @@ type Type<Name extends string, Input extends InputTrait, Object extends ObjectTr
     [field in (
         '__typemetadata' | 
         (Arguments extends HasNoArgumentsTrait ? Default extends HasNoDefaultTrait ? Input extends IsNotInputTrait ? 'withArgs' : never : never : never) |
-        (Default extends HasNoDefaultTrait ? Arguments extends HasNoArgumentsTrait ? Object extends IsNotObjectTrait ? 'withDefault' : never : never : never)
+        (Default extends HasNoDefaultTrait ? Arguments extends HasNoArgumentsTrait ? Object extends IsNotObjectTrait ? 'withDefault' : never : never : never) |
+        (Enum extends IsEnumTrait<EnumMembers> ? 'enumValues' : never)
     )]:
         field extends '__typemetadata' ?
             {
@@ -202,6 +203,8 @@ type Type<Name extends string, Input extends InputTrait, Object extends ObjectTr
         : field extends 'withDefault' ? <DefaultValue extends ResolveListAndOptionalTraits<List, Optional, Input extends IsInputTrait<infer Args> ? GetArgsJsType<Args> : Scalar extends IsScalarTrait<infer BaseT> ? BaseT : never>>
             (value: DefaultValue) =>
             Type<Name, Input, Object, Scalar, List, Optional, Enum, HasDefaultTrait<DefaultValue>, Arguments>
+        : field extends 'enumValues' ? Enum extends IsEnumTrait<infer Members> ?
+            {[member in keyof Members]: member} : never
         : never;
 };
 type UnknownType = Type<string, InputTrait, ObjectTrait, ScalarTrait, ListTrait, OptionalTrait, EnumTrait, DefaultTrait, ArgumentsTrait>;
@@ -296,7 +299,7 @@ type Schema<Types extends AllowedSchemaTypes> = {
 
 declare function makeSchema<S extends AllowedSchemaTypes & Schema<S>>(types: S): S;
 
-declare function makeClient<S extends Schema<any>>(schema: S): 
+declare function makeClient<S extends Schema<S>>(schema: S): 
     {
         [field in 
             'execute' | 
