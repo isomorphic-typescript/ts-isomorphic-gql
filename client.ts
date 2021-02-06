@@ -24,7 +24,7 @@ const MyType = makeEnum('MyType', {
     THEE3: [],
 });
 
-MyType.withDefault(MyType.enumValues.TWO22)
+MyType.withDefault(MyType.values.TWO22)
 
 // Describe is very cumbersome, just have an array instead? Downside is then people can't re-use descriptions for all fields with the same type.
 // Actually someone could re-use the field description by saving the array as a variable. Another nice idea is that we use ttypescript for both
@@ -56,7 +56,7 @@ const Mutation = makeObject('Mutation', () => ({
 
 const Schema = makeSchema({HelloWorld: HelloWorld2, Query, Mutation, MyType});
 
-
+MyType.values.One4
 
 //////////////////////////////
 //       Client Code        //
@@ -64,7 +64,7 @@ const Schema = makeSchema({HelloWorld: HelloWorld2, Query, Mutation, MyType});
 const { execute, query, mutation } = client.makeClient(Schema);
 
 const result = execute(query
-    .test69({arg44: [], one33: "", three: "", four: MyType.enumValues.One4})
+    .test69({arg44: [], one33: "", three: "", four: MyType.values.One4})
         .nestedOb3({})
             //.str({})
             .str({})

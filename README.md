@@ -253,6 +253,7 @@ All that said, it's important that data loaders are a first-class citizen of Gra
 - use with [Join Monster](https://github.com/join-monster/join-monster)
 - merging different GraphQL endpoint schemas
 - Usage with [The Graph](https://thegraph.com/)
+
 # Support
 
 Right now I have a full-time job in tech, but I believe I could provide more value to the world if I could work on open source full-time. Please consider helping me with that:

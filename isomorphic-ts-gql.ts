@@ -134,8 +134,6 @@ declare function makeEnum<Name extends string, Members extends EnumMembers>(name
     Type<Name, IsNotInputTrait, IsNotObjectTrait, IsScalarTrait<keyof Members>, IsNotListTrait, IsNotOptionalTrait, IsEnumTrait<Members>, HasNoDefaultTrait, HasNoArgumentsTrait>;
 declare function makeEnum<Name extends string, Members extends EnumMembers>(name: Name, members: Members):
     Type<Name, IsNotInputTrait, IsNotObjectTrait, IsScalarTrait<keyof Members>, IsNotListTrait, IsNotOptionalTrait, IsEnumTrait<Members>, HasNoDefaultTrait, HasNoArgumentsTrait>;
-declare function enumValues<Members extends EnumMembers>(t: Type<string, InputTrait, ObjectTrait, IsScalarTrait<keyof Members>, ListTrait, OptionalTrait, IsEnumTrait<Members>, DefaultTrait, ArgumentsTrait>):
-    {[member in keyof Members]: member};
 
 /** This method would allow us to have an array as input, but the issue is then the client would need to explicitly supply 'as const'
 declare function makeEnum2<Name extends string, Items extends readonly string[]>(name: Name, items: Items):
@@ -180,7 +178,7 @@ type Type<Name extends string, Input extends InputTrait, Object extends ObjectTr
         '__typemetadata' | 
         (Arguments extends HasNoArgumentsTrait ? Default extends HasNoDefaultTrait ? Input extends IsNotInputTrait ? 'withArgs' : never : never : never) |
         (Default extends HasNoDefaultTrait ? Arguments extends HasNoArgumentsTrait ? Object extends IsNotObjectTrait ? 'withDefault' : never : never : never) |
-        (Enum extends IsEnumTrait<EnumMembers> ? 'enumValues' : never)
+        (Enum extends IsEnumTrait<EnumMembers> ? 'values' : never)
     )]:
         field extends '__typemetadata' ?
             {
@@ -203,7 +201,7 @@ type Type<Name extends string, Input extends InputTrait, Object extends ObjectTr
         : field extends 'withDefault' ? <DefaultValue extends ResolveListAndOptionalTraits<List, Optional, Input extends IsInputTrait<infer Args> ? GetArgsJsType<Args> : Scalar extends IsScalarTrait<infer BaseT> ? BaseT : never>>
             (value: DefaultValue) =>
             Type<Name, Input, Object, Scalar, List, Optional, Enum, HasDefaultTrait<DefaultValue>, Arguments>
-        : field extends 'enumValues' ? Enum extends IsEnumTrait<infer Members> ?
+        : field extends 'values' ? Enum extends IsEnumTrait<infer Members> ?
             {[member in keyof Members]: member} : never
         : never;
 };
@@ -333,7 +331,6 @@ export const types = {
     makeObject,
     makeSchema,
     makeEnum,
-    enumValues,
     List,
     Maybe,
     scalar: {
